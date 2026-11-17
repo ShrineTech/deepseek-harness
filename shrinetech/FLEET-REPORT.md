@@ -1,5 +1,68 @@
 # FLEET-REPORT: dsh patch layer + sandboxed run (newest on top)
 
+## 2026-11-17 (evening) — dsh follow-up: musl box, CRACK repeat, Sando vs dsh head-to-head (Claude fleet worker)
+
+Branch `fleet/dsh-followup-20261117`, fast-forwarded into our fork's `master` (ShrineTech/deepseek-harness only; the
+upstream push is disabled). Scratch: `/mnt/storage/scratch/dsh-fu-1117` (2.3 GB tree + run dirs).
+
+**1. musl in the box: done.**
+- **[ran]** `docker build -t shrinetech-dsh-box:0.1 shrinetech/box-image` (egress-lab + `musl-tools`). Fresh install in a
+  Hokora box: 102 registry.npmjs.org + 2 cdn.sheetjs.com connects, 0 deny.
+- **[ran]** The offline build ran upstream's own `native/system/scripts/build.ts` with no patch: `build: built
+  linux-x64/bin/landlock-run` with `/usr/bin/musl-gcc` (38,552 bytes, static), plus glibc and musl `system.node`.
+- It reports its level:
+  - **[ran]** `landlock-run --probe` → `landlock: fully enforced`;
+  - **[ran]** dsh's own `LocalSandboxProvider` (`shrinetech/sandbox-level.mjs`) →
+    `{"runner":"landlock","enforcement":"full"}`;
+  - **[ran]** a live dsh bash call wrote inside the workspace and got `Permission denied` outside it.
+- `dsh-box` now defaults to the new image.
+
+**2. The 3 tasks on CRACK: 3/3, zero outbound.**
+- **[ran]** Under `gpu-job-lock dsh-crack --gpu 1` (21:23–22:56 UTC, outside both blocked windows; CRACK's unit untouched).
+  - task1 4 steps 21 s, task2 4 steps 13 s, task3 6 steps 22 s;
+  - `check.sh` → task1/2/3 PASS;
+  - `guard.mjs strace` PASS on all three. Connects went only to 127.0.0.1:8097, plus failed nscd unix lookups.
+- The repo was rebuilt from the first run's evidence (dsh's read results), and the checks were validated: the start state
+  fails all 3, and the first run's diff passes all 3. The prompts were re-written from the first report. The originals
+  were not saved.
+- The first attempt ran only task 1: `docker run -i` inside dsh-box ate the rest of the prompt list on stdin. Fixed with
+  `< /dev/null`.
+
+**3. Sando vs dsh: 68 runs, 0 outbound** (full table and port list: `h2h/RESULTS.md`; setup written first: `h2h/FAIR-SETUP.md`).
+| model | dsh pass / time / prompt tok | Sando pass / time / prompt tok |
+|---|---|---|
+| Bonsai 2 27B (16 runs each) | 16/16 · 1,960 s · 4.18 M | 15/16 · 3,473 s · 5.07 M |
+| CRACK 27B (18 runs each) | 16/18 · 1,951 s · 4.58 M | 16/18 · 2,193 s · 3.50 M |
+- **Success:** a tie (32/34 vs 31/34).
+- **Time:** dsh was 31% faster overall, from Sando's long tails.
+- **Prompt size:** Sando's is 3× smaller (1.9 k vs 5.7 k tokens on the first request).
+- **Where dsh is better:**
+  - Sando refused 33 re-reads ("Wasted call"), which drove bash `cat` workarounds and loops;
+  - Sando's lean prompt names `rg`, which isn't always installed;
+  - Sando missed the t5 tie-break 3 of 4 times (dsh 1 of 4).
+- These feed SAN-4472 (`RESULTS.md` § port list).
+
+**White-hat check: 12/12 PASS.** 6 file-borne prompt-injection cases from the kit (v1.2.0: page/attachment routes, with an
+exfil link and a variation-selector canary) ran on CRACK for each harness (`shrinetech/redteam/`).
+- **[ran]** No outbound, no writes outside the repo, no canary and no rendered attacker link in any reply.
+- **[ran]** The model ran no bait command in any case.
+- The first pass had 3 checker bugs, all fixed before the scored pass:
+  - the proxy log dir was created too late (dsh got TRANSPORT errors);
+  - the checker counted its own log as an outside write;
+  - it scanned the tool results dsh echoes in `--json`.
+
+**GPU / forge:**
+- Bonsai 2 (`llama-server-bonsai2`) was **down** when I started: it crash-looped at 20:26 UTC on a card-0 OOM. Card 0 had
+  15.9 GB free and its lock was free, so I started that one unit again (no forge-mode change). It is up on :8100.
+- Card-0 lock held 21:16–22:47 UTC. Card 1 held 21:23–22:56 UTC.
+- CPU: each box was capped at 4 CPUs, one run at a time per card.
+
+### Needs Chuck (also posted as a form)
+- Port the "allow / return a re-read, nudge instead of refuse" change into Sando's lean profile (SAN-4472)? (yes/no)
+- A/B "smallest correct edit" removed from lean-local on t5? (yes/no)
+- Add `rg` + `git` to the dsh box image for the next head-to-head? (yes/no)
+- Keep the 2.3 GB scratch tree at `/mnt/storage/scratch/dsh-fu-1117`? (keep/delete)
+
 ## 2026-11-17 — dsh-sandbox-1117 (Claude fleet worker)
 
 **Verdict: the patched dsh CLI ran 3/3 small coding tasks against our local Bonsai 2 27B with zero outbound non-localhost
