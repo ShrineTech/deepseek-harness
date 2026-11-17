@@ -9,7 +9,7 @@ while IFS=$'\t' read -r name prompt; do
   START=$(date +%s)
   FORGE_LLAMA_PORT=8097 FORGE_LLAMA_MODEL=qwen3.8-27b FORGE_LLAMA_CTX=131072 FORGE_LLAMA_MAX_TOKENS=8192 \
     DSH_BOX_STRACE=$S/strace-$name.log timeout 1200 "$here/../dsh-box" "$TREE" "$S" \
-    --profile headless --json --approval-policy never "$prompt" > "$S/$name.jsonl" 2> "$S/$name.err"
+    --profile headless --json --approval-policy never "$prompt" > "$S/$name.jsonl" 2> "$S/$name.err" < /dev/null
   rc=$?; steps=$(grep -c '"phase":"step_end"' "$S/$name.jsonl")
   g=$(node "$here/../guard.mjs" strace "$S/strace-$name.log" >/dev/null 2>&1 && echo "zero outbound" || echo "OUTBOUND FAIL")
   echo "$name rc=$rc steps=$steps secs=$(( $(date +%s) - START )) strace=$g connects=$(grep -c 'connect(' "$S/strace-$name.log")"
