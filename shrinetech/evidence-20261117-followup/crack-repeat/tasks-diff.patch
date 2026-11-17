@@ -1,0 +1,50 @@
+Binary files /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/__pycache__/slug.cpython-312.pyc and ./__pycache__/slug.cpython-312.pyc differ
+Binary files /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/__pycache__/test_slug.cpython-312.pyc and ./__pycache__/test_slug.cpython-312.pyc differ
+diff --color -ru /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/slug.py ./slug.py
+--- /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/slug.py	2026-11-17 21:16:57.026590531 +0000
++++ ./slug.py	2026-11-17 22:14:53.402799751 +0000
+@@ -1,3 +1,10 @@
++import re
++import unicodedata
++
++
+ def slugify(text: str) -> str:
+     """Turn a title into a URL slug."""
+-    raise NotImplementedError
++    text = unicodedata.normalize("NFKD", text)
++    text = text.encode("ascii", "ignore").decode("ascii")
++    text = re.sub(r"[^a-zA-Z0-9]+", "-", text.lower())
++    return text.strip("-")
+diff --color -ru /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/stats.mjs ./stats.mjs
+--- /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/stats.mjs	2026-11-17 21:16:57.026975464 +0000
++++ ./stats.mjs	2026-11-17 22:15:08.411690490 +0000
+@@ -1,7 +1,7 @@
+ // Moving average over a window of n values.
+ export function movingAverage(values, n) {
+   const out = []
+-  for (let i = 0; i + n < values.length; i++) {
++  for (let i = 0; i + n <= values.length; i++) {
+     let sum = 0
+     for (let j = i; j < i + n; j++) sum += values[j]
+     out.push(sum / n)
+diff --color -ru /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/todo.py ./todo.py
+--- /home/princetrunks/apps/deepseek-harness/shrinetech/crack-repeat/repo/todo.py	2026-11-17 21:16:57.027276585 +0000
++++ ./todo.py	2026-11-17 22:15:25.274568951 +0000
+@@ -8,6 +8,16 @@
+     elif argv[:1] == ["list"]:
+         for i, t in enumerate(todos, 1):
+             print(f"{i}. [{'x' if t['done'] else ' '}] {t['text']}")
++    elif argv[:1] == ["done"]:
++        try:
++            n = int(argv[1])
++        except (IndexError, ValueError):
++            print("usage: todo.py done <n>", file=sys.stderr)
++            sys.exit(1)
++        if not 1 <= n <= len(todos):
++            print(f"error: todo number {n} out of range (1-{len(todos)})", file=sys.stderr)
++            sys.exit(1)
++        todos[n - 1]["done"] = True
+     json.dump(todos, open(path, "w"))
+ 
+ if __name__ == "__main__":
+Only in .: todos.json

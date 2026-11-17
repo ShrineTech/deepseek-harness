@@ -1,0 +1,6 @@
+task1 rc=0 steps=4 secs=21 strace=zero outbound connects=7
+task2 rc=0 steps=4 secs=13 strace=zero outbound connects=7
+task3 rc=0 steps=6 secs=22 strace=zero outbound connects=14
+task1 PASS
+task2 PASS
+task3 PASS
