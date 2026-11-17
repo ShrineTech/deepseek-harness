@@ -1,0 +1,71 @@
+# ShrineTech patch layer for the dsh CLI (headless / tui / acp / sdk profiles).
+# Install as $DSH_HOME/cordis.patch.yml: the home layer applies to every profile.
+# Goal: no call-home path is mounted, and the only model route is our local
+# OpenAI-compatible llama-server. Row ids are from packages/bundle/base/cordis.patch.yml
+# (dsh 0.2.2-rc.4). The desktop (Electron) app is out of scope and must never run.
+# Audit: ZCode docs/dsh-study-2026-11-17.md §1 (paths A-M below refer to that table).
+
+# A: OTel session upload on /feedback or a thumbs vote (any provider, local too).
+- id: otel
+  disabled: true
+- id: session-telemetry-otel
+  disabled: true
+
+# B, C: dsh_session_log / dsh_plugin_packages request fields (DeepSeek route only).
+- id: session-log-deepseek
+  disabled: true
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+# G, H: DeepSeek account, sign-in and the DeepSeek model routes.
+- id: llm-deepseek
+  disabled: true
+- id: llm-deepseek-account
+  disabled: true
+- id: deepseek-account
+  disabled: true
+
+# I, J: web search (DeepSeek API) and web fetch of public URLs.
+- id: web-search-deepseek
+  disabled: true
+- id: web-deepseek-api
+  disabled: true
+- id: web-fetch-http
+  disabled: true
+- id: tool-web
+  disabled: true
+
+# L: skills fetched from upstream.
+- id: upstream-skills
+  disabled: true
+
+# The one model route: our local llama-server, OpenAI-compatible (pi-ai adapter).
+# The box launcher (shrinetech/dsh-box) relays 127.0.0.1:$FORGE_LLAMA_PORT to the
+# real server, so the port here is the same inside and outside the box.
+- id: llm-pi-ai
+  config:
+    providers:
+      forge-llama:
+        displayName: Forge llama-server (local)
+        api: openai-completions
+        baseURL: !!js "'http://127.0.0.1:' + (process.env.FORGE_LLAMA_PORT ?? '8097') + '/v1'"
+        apiKeyEnv: FORGE_LLAMA_API_KEY
+        compat:
+          maxTokensField: max_tokens
+          supportsStrictMode: false
+          supportsReasoningEffort: false
+        models:
+          - id: !!js process.env.FORGE_LLAMA_MODEL ?? 'qwen3.8-27b'
+            name: !!js process.env.FORGE_LLAMA_MODEL ?? 'qwen3.8-27b'
+            contextWindow: !!js Number(process.env.FORGE_LLAMA_CTX ?? 131072)
+            maxTokens: 16384
+            input: [text]
+- id: agent-default-model
+  config:
+    provider: forge-llama
+    model: !!js process.env.FORGE_LLAMA_MODEL ?? 'qwen3.8-27b'
+
+# The 65,536-token default headroom is sized for 1M-token windows.
+- id: compaction-basic
+  config:
+    headroomTokens: 16384
