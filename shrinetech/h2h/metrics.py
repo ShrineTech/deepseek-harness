@@ -3,7 +3,7 @@
 #   req   chat/completions requests          pt/ct  prompt / completion tokens (server `usage`; `timings` fallback)
 #   calls tool calls the model made          bad    tool calls with unparseable JSON arguments
 #   err   tool results that report a harness/tool error (unknown tool, bad args, missing file, edit mismatch, denied,
-#         timeout); a test run that exits non-zero is NOT an error
+#         timeout); a test run that exits non-zero, or prints "Error:", is NOT an error
 #   reread  a file read again with no write to it in between (read/view tools, or cat/head/tail/sed -n/nl in bash)
 #   spill   reads of a harness spill/overflow file (truncated tool output stored outside the repo)
 import json, re, shlex, sys
@@ -14,6 +14,11 @@ ERR_RE = re.compile(
     r"^\s*(<tool_use_error>|error\b|Error:|\[error\]|Tool error|Invalid (tool|input|arguments)|Unknown tool|"
     r"File (does not exist|not found)|No such file|String to replace not found|old_string|Permission denied|"
     r"Command timed out|Timed out|refus)", re.I)
+# A shell result carries the program's own output (which may well start with "Error:"), so for shell tools only the
+# harness's own failure markers count.
+SHELL_ERR_RE = re.compile(r"(<tool_use_error>|Command timed out|timed out after|\[sandbox: |no sandbox backend|Unknown tool|"
+                          r"Invalid (tool|input|arguments)|refusing to run)", re.I)
+SHELL_TOOLS = {"bash", "shell", "run_command"}
 SPILL_RE = re.compile(r"(spill|tool-results?|overflow|\.dsh/|dsh-home/|/\.zcode/)", re.I)
 
 
@@ -118,7 +123,8 @@ def main(path):
                 json.loads(tc[2] or "{}")
             except ValueError:
                 bad += 1
-    err = sum(1 for (i, _, _) in order if i in results and ERR_RE.search(results[i][:300] or ""))
+    err = sum(1 for (i, n, _) in order if i in results
+              and (SHELL_ERR_RE if n.lower() in SHELL_TOOLS else ERR_RE).search(results[i][:300] or ""))
     reread = spill = 0
     seen = set()
     for _, name, args in order:
