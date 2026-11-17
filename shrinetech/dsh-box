@@ -6,9 +6,12 @@
 #   dsh-box <dsh-src> <scratch> [dsh args...]
 #     <dsh-src>   built checkout (pnpm install + host libs built: apps/cli/lib/bin.js; read-only in the box)
 #     <scratch>   work dir: home/, dsh-home/, repo/ live here (the only writable mount)
-# Env: FORGE_LLAMA_PORT (8097), FORGE_LLAMA_MODEL, FORGE_LLAMA_CTX, DSH_BOX_CWD (<scratch>/repo),
-#      DSH_BOX_STRACE (<scratch>/strace-connect.log), DSH_BOX_CPUS (4),
-#      DSH_BOX_IMAGE (shrineai-egress-lab:0.2: Ubuntu 24.04 + strace).
+# Env: FORGE_LLAMA_PORT (8097), FORGE_LLAMA_MODEL, FORGE_LLAMA_CTX, FORGE_LLAMA_MAX_TOKENS,
+#      FORGE_LLAMA_UPSTREAM_PORT (host port the relay dials; default FORGE_LLAMA_PORT, e.g. a logging proxy),
+#      DSH_BOX_CWD (<scratch>/repo), DSH_BOX_STRACE (<scratch>/strace-connect.log), DSH_BOX_CPUS (4),
+#      DSH_BOX_ENTRY (JS entry inside <dsh-src>; default apps/cli/lib/bin.js. The Sando head-to-head runs
+#      Sando's release bin/zcode.mjs in the same box), DSH_BOX_PASSENV (names of extra env vars to pass in),
+#      DSH_BOX_IMAGE (shrinetech-dsh-box:0.1 = egress-lab Ubuntu 24.04 + strace + musl-tools, built from box-image/).
 # Why Docker and not bwrap/systemd: on this host bwrap cannot bring up loopback in an
 # unprivileged netns (apparmor_restrict_unprivileged_userns=1), and systemd USER units
 # do not enforce IPAddressDeny (both tested 2026-11-17).
@@ -16,6 +19,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=$(realpath "$1"); scratch=$(realpath "$2"); shift 2
 port=${FORGE_LLAMA_PORT:-8097}
+upstream=${FORGE_LLAMA_UPSTREAM_PORT:-$port}
+entry=${DSH_BOX_ENTRY:-apps/cli/lib/bin.js}
 cwd=${DSH_BOX_CWD:-$scratch/repo}
 trace=${DSH_BOX_STRACE:-$scratch/strace-connect.log}
 node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
@@ -24,7 +29,7 @@ cp "$here/cordis.patch.yml" "$scratch/dsh-home/cordis.patch.yml"
 cp "$here/relay.mjs" "$scratch/run/relay.mjs"
 sock=$scratch/run/llama.sock
 
-node "$scratch/run/relay.mjs" out "$sock" "$port" & relay=$!
+node "$scratch/run/relay.mjs" out "$sock" "$upstream" & relay=$!
 trap 'kill $relay 2>/dev/null' EXIT
 for _ in $(seq 50); do [ -S "$sock" ] && break; sleep 0.1; done
 
@@ -40,16 +45,18 @@ envs=(
 )
 [ -n "${FORGE_LLAMA_MODEL:-}" ] && envs+=(-e FORGE_LLAMA_MODEL="$FORGE_LLAMA_MODEL")
 [ -n "${FORGE_LLAMA_CTX:-}" ] && envs+=(-e FORGE_LLAMA_CTX="$FORGE_LLAMA_CTX")
+[ -n "${FORGE_LLAMA_MAX_TOKENS:-}" ] && envs+=(-e FORGE_LLAMA_MAX_TOKENS="$FORGE_LLAMA_MAX_TOKENS")
+for v in ${DSH_BOX_PASSENV:-}; do envs+=(-e "$v=${!v}"); done
 
 # Read-only image root, no capabilities, our uid; mounts: node (ro), dsh tree (ro), scratch (rw).
 docker run --rm -i --init --network none --cpus "${DSH_BOX_CPUS:-4}" --memory 8g --pids-limit 1024 \
   --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges \
   --read-only --tmpfs /tmp:rw,exec,size=512m \
   -v "$node_root:/opt/node:ro" -v "$src:$src:ro" -v "$scratch:$scratch" \
-  -w "$cwd" "${envs[@]}" --entrypoint /bin/bash "${DSH_BOX_IMAGE:-shrineai-egress-lab:0.2}" -c '
+  -w "$cwd" "${envs[@]}" --entrypoint /bin/bash "${DSH_BOX_IMAGE:-shrinetech-dsh-box:0.1}" -c '
     node "$1/run/relay.mjs" in "$1/run/llama.sock" "$FORGE_LLAMA_PORT" & relay=$!; sleep 0.3
-    src=$2; trace=$3; shift 3
+    src=$2; trace=$3; entry=$4; shift 4
     strace -f -qq -e trace=connect,sendto,sendmsg,sendmmsg -o "$trace" \
-      node "$src/apps/cli/lib/bin.js" "$@"
+      node "$src/$entry" "$@"
     rc=$?; kill $relay; exit $rc
-  ' dsh-box "$scratch" "$src" "$trace" "$@"
+  ' dsh-box "$scratch" "$src" "$trace" "$entry" "$@"

@@ -58,7 +58,7 @@
           - id: !!js process.env.FORGE_LLAMA_MODEL ?? 'qwen3.8-27b'
             name: !!js process.env.FORGE_LLAMA_MODEL ?? 'qwen3.8-27b'
             contextWindow: !!js Number(process.env.FORGE_LLAMA_CTX ?? 131072)
-            maxTokens: 16384
+            maxTokens: !!js Number(process.env.FORGE_LLAMA_MAX_TOKENS ?? 16384)
             input: [text]
 - id: agent-default-model
   config:

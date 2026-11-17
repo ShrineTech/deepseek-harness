@@ -1,0 +1,5 @@
+landlock: fully enforced
+tmp-writable-without-landlock=yes
+/bin/sh: 1: cannot create /tmp/out.txt: Permission denied
+write-inside=ok
+write-outside=blocked

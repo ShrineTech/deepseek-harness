@@ -1,0 +1,11 @@
+# dsh's own sandbox selection inside dsh-box (shrinetech-dsh-box:0.1, landlock-run built by build.ts with musl-gcc)
+{"runner":"landlock","enforcement":"full","argv0":"/mnt/storage/scratch/dsh-fu-1117/dsh/native/system/packages/linux-x64/bin/landlock-run"}
+# landlock-run: 38552 bytes, sha256 a752bc72f111fcc573c3e61fb90fa544541dac0ca498d2e279e1630d7c659b31
+# build.ts log:
+/usr/bin/musl-gcc
+build: built linux-x64/bin/landlock-run
+build: built linux-x64/bin/glibc/system.node
+build: built linux-x64/bin/musl/system.node
+# dsh bash tool, workspace-write (Bonsai 2 run): touch inside.txt; touch <scratch>/outside.txt
+touch: cannot touch '/mnt/storage/scratch/dsh-fu-1117/sandbox-probe/outside.txt': Permission denied
+inside.txt created: /mnt/storage/scratch/dsh-fu-1117/sandbox-probe/repo/inside.txt
