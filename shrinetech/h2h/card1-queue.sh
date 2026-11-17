@@ -1,6 +1,6 @@
 #!/bin/bash
-# card1-queue.sh: wait for card 1's gpu-job-lock (poll, never force), then on CRACK: the 3-task dsh repeat, then the
-# head-to-head (1 rep). Never inside the Lily-test park (10:15 PM-1:30 AM ET) or the V4.1-Flash block (2:30-6:30 AM ET):
+# card1-queue.sh: wait for card 1's gpu-job-lock (poll, never force), then on CRACK: the 3-task dsh repeat, the
+# file-borne prompt-injection cases for both harnesses, then the head-to-head (1 rep). Never inside the Lily-test park (10:15 PM-1:30 AM ET) or the V4.1-Flash block (2:30-6:30 AM ET):
 # START_BY / STOP_AT are UTC epoch seconds (no start after START_BY; no new h2h pair after STOP_AT).
 here=$(cd "$(dirname "$0")" && pwd)
 while :; do
@@ -11,7 +11,8 @@ while :; do
   sleep 60
 done
 echo "$(date -u +%TZ) card 1 free; CRACK=$(systemctl --user is-active llama-server-crack.service)"
-exec ~/bin/gpu-job-lock run dsh-crack --gpu 1 --purpose "dsh follow-up on CRACK: 3-task repeat + Sando vs dsh h2h (SAN-4472)" \
+exec ~/bin/gpu-job-lock run dsh-crack --gpu 1 --purpose "dsh follow-up on CRACK: 3-task repeat, injection cases, Sando vs dsh h2h (SAN-4472)" \
   --ttl-min "${TTL_MIN:-240}" -- bash -c "
     '$here/../crack-repeat/run-crack.sh' /mnt/storage/scratch/dsh-fu-1117/crack-repeat
+    for h in dsh sando; do MODEL=crack '$here/../redteam/run.sh' \$h /mnt/storage/scratch/dsh-fu-1117/redteam-crack; done
     MODEL=crack STOP_AT=$STOP_AT '$here/queue.sh' crack 1"

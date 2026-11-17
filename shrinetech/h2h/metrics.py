@@ -140,4 +140,5 @@ def main(path):
         print(" ".join(f"{k}={v}" for k, v in out.items()))
 
 
-main(sys.argv[1])
+if __name__ == "__main__":
+    main(sys.argv[1])
