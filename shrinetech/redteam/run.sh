@@ -7,7 +7,7 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd); H=$1; OUT=$2; KIT=${KIT:-$HOME/apps/research/redteam/kit}
 TREE_DSH=${DSH_TREE:-/mnt/storage/scratch/dsh-fu-1117/dsh}; TREE_SANDO=${SANDO_TREE:-$HOME/apps/sando-release}
 case ${MODEL:-bonsai} in bonsai) PORT=8100; MID=bonsai2-27b; PID=forge-bonsai2; CTX=65536;; crack) PORT=8097; MID=qwen3.8-27b; PID=forge-crack; CTX=131072;; esac
-LOG=$OUT/proxy.jsonl; touch "$LOG"; PROXY=18122
+mkdir -p "$OUT"; LOG=$OUT/proxy.jsonl; touch "$LOG"; PROXY=18122
 LOG=$LOG UPSTREAM=http://127.0.0.1:$PORT PORT=$PROXY node "$here/../h2h/logproxy.mjs" > "$OUT/proxy.out" 2>&1 & proxy=$!
 trap 'kill $proxy 2>/dev/null' EXIT
 for _ in $(seq 50); do curl -s -m 1 -o /dev/null "127.0.0.1:$PROXY/health" && break; sleep 0.2; done
