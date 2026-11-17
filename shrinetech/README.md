@@ -9,7 +9,7 @@ is changed, so a rebase onto upstream stays trivial. Never open a PR with this t
 | `cordis.patch.yml` | Home patch layer (`$DSH_HOME/cordis.patch.yml`, applies to every profile). It disables OTel, the DeepSeek session-log and plugin-inventory fields, the DeepSeek account and model routes, web search/fetch and upstream skills, then adds the `forge-llama` OpenAI-compatible route and makes it the default. |
 | `dsh-box` | Launcher. It runs `apps/cli/lib/bin.js` in Docker `--network none` (loopback only), with no capabilities, a read-only root and ≤ 4 CPUs. It sets the telemetry env switches and relays exactly one host port (the llama-server) in through a unix socket. Every `connect`/`send*` call is strace-logged. |
 | `relay.mjs` | The one-port TCP ↔ unix-socket relay used by `dsh-box`. |
-| `box-image/Dockerfile` | The box image `shrinetech-dsh-box:0.1`: `shrineai-egress-lab:0.2` (Ubuntu 24.04 + build-essential + strace) plus `musl-tools`, so upstream's `build.ts` builds `landlock-run` with `musl-gcc` unchanged. |
+| `box-image/Dockerfile` | The box image `shrinetech-dsh-box:0.2`: `shrineai-egress-lab:0.2` (Ubuntu 24.04 + build-essential + strace) plus `musl-tools` (so upstream's `build.ts` builds `landlock-run` with `musl-gcc` unchanged), `ripgrep` and `git` (0.2, 2026-11-17: the 0.1 box had neither, which skewed the head-to-head against Sando's `rg` prompt line). |
 | `sandbox-level.mjs` | Asks dsh's own `LocalSandboxProvider` which backend and enforcement level it picks (`{"runner":"landlock","enforcement":"full"}` in the box). |
 | `h2h/` | The Sando-vs-dsh head-to-head: runner, harness-neutral wire metrics, fair setup and results. |
 | `guard.mjs` | `config <dump>` checks that every call-home row is off and the route is local. `strace <log>` checks that no connect or send went anywhere except loopback or unix sockets, and flags any DNS lookup. |
@@ -17,8 +17,8 @@ is changed, so a rebase onto upstream stays trivial. Never open a PR with this t
 ## Use
 ```sh
 # 1. install in a Hokora box (egress: registry.npmjs.org + cdn.sheetjs.com only), copy the tree out
-# 2. build the box image once (egress-lab + musl-tools):  docker build -t shrinetech-dsh-box:0.1 shrinetech/box-image
-#    then build offline in it (docker run --network none ... shrinetech-dsh-box:0.1, ~2 min on 4 CPUs):
+# 2. build the box image once (egress-lab + musl-tools + ripgrep + git):  docker build -t shrinetech-dsh-box:0.2 shrinetech/box-image
+#    then build offline in it (docker run --network none ... shrinetech-dsh-box:0.2, ~2 min on 4 CPUs):
 #      node --import tsx/esm scripts/compile-referenced-projects.ts host-libraries
 #      node --max-old-space-size=8192 node_modules/typescript/bin/tsc -p tsconfig.host.json
 #      node --import tsx/esm native/system/scripts/build.ts      # upstream's own script: landlock-run with musl-gcc

@@ -11,7 +11,8 @@
 #      DSH_BOX_CWD (<scratch>/repo), DSH_BOX_STRACE (<scratch>/strace-connect.log), DSH_BOX_CPUS (4),
 #      DSH_BOX_ENTRY (JS entry inside <dsh-src>; default apps/cli/lib/bin.js. The Sando head-to-head runs
 #      Sando's release bin/zcode.mjs in the same box), DSH_BOX_PASSENV (names of extra env vars to pass in),
-#      DSH_BOX_IMAGE (shrinetech-dsh-box:0.1 = egress-lab Ubuntu 24.04 + strace + musl-tools, built from box-image/).
+#      DSH_BOX_IMAGE (shrinetech-dsh-box:0.2 = egress-lab Ubuntu 24.04 + strace + musl-tools + ripgrep + git, built from
+#      box-image/; 0.1 = the same without ripgrep/git, used by the 2026-11-17 head-to-head).
 # Why Docker and not bwrap/systemd: on this host bwrap cannot bring up loopback in an
 # unprivileged netns (apparmor_restrict_unprivileged_userns=1), and systemd USER units
 # do not enforce IPAddressDeny (both tested 2026-11-17).
@@ -53,7 +54,7 @@ docker run --rm -i --init --network none --cpus "${DSH_BOX_CPUS:-4}" --memory 8g
   --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges \
   --read-only --tmpfs /tmp:rw,exec,size=512m \
   -v "$node_root:/opt/node:ro" -v "$src:$src:ro" -v "$scratch:$scratch" \
-  -w "$cwd" "${envs[@]}" --entrypoint /bin/bash "${DSH_BOX_IMAGE:-shrinetech-dsh-box:0.1}" -c '
+  -w "$cwd" "${envs[@]}" --entrypoint /bin/bash "${DSH_BOX_IMAGE:-shrinetech-dsh-box:0.2}" -c '
     node "$1/run/relay.mjs" in "$1/run/llama.sock" "$FORGE_LLAMA_PORT" & relay=$!; sleep 0.3
     src=$2; trace=$3; entry=$4; shift 4
     strace -f -qq -e trace=connect,sendto,sendmsg,sendmmsg -o "$trace" \
